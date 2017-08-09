@@ -21,14 +21,14 @@ class Users(Base):
         """Return object data in easily serializeable format"""
         return {
             'name': self.name,
-            'id': self.id,
             'email':self.email,
             'password':self.password,
+            'id': self.id,
         }
 
 
-class MenuItem(Base):
-    __tablename__ = 'menu_item'
+class Events(Base):
+    __tablename__ = 'events'
 
     name = Column(String(80), nullable=False)
     id = Column(Integer, primary_key=True)
@@ -44,14 +44,15 @@ class MenuItem(Base):
         """Return object data in easily serializeable format"""
         return {
             'name': self.name,
-            'description': self.description,
-            'id': self.id,
+            'category': self.category,
             'price': self.price,
-            'course': self.course,
+            'date': self.date,
+            'time': self.time,
+            'id': self.id,
         }
 
 
-engine = create_engine('sqlite:///restaurantmenu.db')
+engine = create_engine('sqlite:///handler.db')
 
 
 Base.metadata.create_all(engine)
