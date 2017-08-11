@@ -1,7 +1,14 @@
-from flask import Flask, render_template, request, redirect, jsonify, url_for, session, flash
+from flask import Flask, render_template, request, redirect, jsonify, url_for, session, flash,abort,g
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Users, Events
+from flask_sqlalchemy  import SQLAlchemy
+import datetime
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from forms import Login, RegisterForm
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_bootstrap import Bootstrap
+from flask_wtf import FlaskForm
 
 app = Flask(__name__)
 
@@ -12,6 +19,19 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.session_protection = 'strong'
+login_manager.login_view = 'login'
+
+user = Users()
+
+
+
+@login_manager.user_loader
+def load_user(id):
+    return Users.get_id(int(id))
 
 # Fake Restaurants
 # restaurant = {'name': 'The CRUDdy Crab', 'id': '1'}
@@ -25,14 +45,105 @@ session = DBSession()
 # items = []
 
 @app.route('/signup/', methods=['GET', 'POST'])
-def login():
+def signup():
+    form = RegisterForm()
     if request.method == 'POST':
-        user = Users(name=request.form['name'], password=request.form['password'],email=request.form['email'])
-        print(user)
+        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        user = Users(name=request.form['name'], password=hashed_password, email=request.form['email'])
         session.add(user)
         session.commit()
+        flash('User successfully registered')
         return render_template('hello.html')
     return render_template('signup.html')
+
+
+# creating an event
+@app.route('/create/', methods=['GET', 'POST'])
+@app.route('/login/create/', methods=['GET', 'POST'])
+def createEvent():
+    if request.method == 'POST':
+        time = str(request.form['time']).split(':')
+        time = datetime.time(int(time[0]), int(time[1]))
+        date = (request.form['date']).split('-')
+        date = datetime.date(int(date[0]), int(date[1]), int(date[2]))
+        events = Events(name=request.form['name'], fee=request.form['fee'], date=date, time=time,
+                        location=request.form['location'],
+                        organisers=request.form['organisers'], description=request.form['description'],
+                        category=request.form['category'], privacy=request.form['privacy'])
+        session.add(events)
+        session.commit()
+        return render_template('hello.html')
+    return render_template('createEvent.html')
+
+
+# logging in user
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        remember_me = False
+        if 'remember_me' in request.form:
+            remember_me = True
+        registered_user = Users.query.filter_by(name=username).first()
+        if registered_user is None:
+                flash('Username or Password is invalid')
+                return redirect(url_for('login'))
+        if check_password_hash(registered_user.password, request.form['password']):
+            login_user(registered_user, remember = remember_me)
+            flash('Logged in successfully')
+            return redirect( url_for('index'))
+    return render_template('logIn.html')
+    '''
+    form = Login()
+    if form.validate_on_submit():
+        user = Users.query.filter_by(name=form.username.data).first()
+        if user:
+            if check_password_hash(user.password, form.password.data):
+                login_user(user)
+                flash('Logged in successfully.')
+                return redirect(url_for('createEvent'))
+
+        return '<h1>Invalid username or password</h1>'
+        # return '<h1>' + form.username.data + ' ' + form.password.data + '</h1>'
+
+    return render_template('sign in.html', form=form)'''
+
+
+
+
+        #return redire('home.html')
+    #return render_template('logIn.html', form=form)
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('home.html')
+
+@app.route('/new', methods=['GET', 'POST'])
+@login_required
+def new():
+    return render_template(createEvent)
+
+@app.route('/todos/<int:todo_id>', methods=['GET', 'POST'])
+@login_required
+def show_or_update(todo_id):
+    return render_template('home.html')
+
+@app.route("/logout")
+#@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+@app.before_request
+def before_request():
+    g.user = current_user
+
+@app.route('/secret')
+@login_required
+def secret():
+    return 'Only authenticated users are allowed!'
 
 
 @app.route('/event/<int:register_id>/menu/JSON')
@@ -59,9 +170,9 @@ def restaurantsJSON():
 @app.route('/')
 @app.route('/event/')
 def showEvents():
-    restaurants = session.query(Restaurant).all()
-    # return "This page will show all my restaurants"
-    return render_template('restaurants.html', restaurants=restaurants)
+    restaurants = session.query(Events).all()
+    # return "This page will show all my events"
+    return render_template('landing.html', restaurants=restaurants)
 
 
 # Create a new restaurant

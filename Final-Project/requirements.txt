@@ -1,0 +1,6 @@
+SQLalchemy
+flask-login
+flask
+werkzeug
+itsdangerous
+flask-bootstrap

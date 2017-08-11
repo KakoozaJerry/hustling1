@@ -1,19 +1,22 @@
 import os
 import sys
+import unicodedata
+import enum
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
+from flask.ext.login import UserMixin
 
 Base = declarative_base()
 
 
-class Users(Base):
+class Users(UserMixin,Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(250), nullable=False)
-    email = Column(String(250))
+    name = Column(String(250), nullable=False, unique=True, index=True)
+    email = Column(String(250), unique=True, index=True)
     password = Column(String(250))
 
     @property
@@ -26,6 +29,26 @@ class Users(Base):
             'id': self.id,
         }
 
+    def is_authenticated(self):
+        return True
+
+    def is_active(self):
+        return True
+
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
+
+    def __repr__(self):
+        return '<User %r>' % (self.name)
+
+
+
+class MyEnum(enum.Enum):
+    Private = 1
+    Public = 2
 
 class Events(Base):
     __tablename__ = 'events'
@@ -36,6 +59,11 @@ class Events(Base):
     fee = Column(String(8))
     date = Column(Date)
     time = Column(Time)
+    location = Column(String(250))
+    organisers = Column(String(250))
+    description = Column(String(250))
+    category = Column(String(250))
+    privacy = Column(Enum(MyEnum))
     register_id = Column(Integer, ForeignKey('users.id'))
     users = relationship(Users)
 
@@ -48,8 +76,13 @@ class Events(Base):
             'price': self.price,
             'date': self.date,
             'time': self.time,
+            'location':self.location,
+            'organisers':self.organisers,
+            'description':self.description,
+            'category':self.category,
             'id': self.id,
         }
+
 
 
 engine = create_engine('sqlite:///handler.db')
