@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, redirect, jsonify, url_for, session, flash,abort,g
+from flask import Flask, render_template, request, redirect, jsonify, url_for, session, flash, abort, g
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Users, Events
-from flask_sqlalchemy  import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from forms import Login, RegisterForm
@@ -28,10 +28,10 @@ login_manager.login_view = 'login'
 user = Users()
 
 
-
 @login_manager.user_loader
-def load_user(id):
-    return Users.get_id(int(id))
+def load_user(user_id):
+    return user.query.get(int(user_id))
+
 
 # Fake Restaurants
 # restaurant = {'name': 'The CRUDdy Crab', 'id': '1'}
@@ -64,7 +64,7 @@ def createEvent():
     if request.method == 'POST':
         time = str(request.form['time']).split(':')
         time = datetime.time(int(time[0]), int(time[1]))
-        date = (request.form['date']).split('-')
+        date = str(request.form['date']).split('-')
         date = datetime.date(int(date[0]), int(date[1]), int(date[2]))
         events = Events(name=request.form['name'], fee=request.form['fee'], date=date, time=time,
                         location=request.form['location'],
@@ -77,24 +77,25 @@ def createEvent():
 
 
 # logging in user
-@app.route('/login/', methods=['GET', 'POST'])
+'''@app.route('/login/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         remember_me = False
-        if 'remember_me' in request.form:
-            remember_me = True
-        registered_user = Users.query.filter_by(name=username).first()
+        registered_user = session.query(Users).filter_by(name=username)
+        if username  not in registered_user:
+            return 'invalid'
+
+        #registered_user = Users.query.filter_by(name=username).first()
         if registered_user is None:
                 flash('Username or Password is invalid')
                 return redirect(url_for('login'))
         if check_password_hash(registered_user.password, request.form['password']):
-            login_user(registered_user, remember = remember_me)
+            login_user(registered_user)
             flash('Logged in successfully')
             return redirect( url_for('index'))
     return render_template('logIn.html')
-    '''
     form = Login()
     if form.validate_on_submit():
         user = Users.query.filter_by(name=form.username.data).first()
@@ -110,35 +111,38 @@ def login():
     return render_template('sign in.html', form=form)'''
 
 
-
-
-        #return redire('home.html')
-    #return render_template('logIn.html', form=form)
+# return redire('home.html')
+# return render_template('logIn.html', form=form)
 
 @app.route('/')
 @login_required
 def index():
     return render_template('home.html')
 
+
 @app.route('/new', methods=['GET', 'POST'])
 @login_required
 def new():
     return render_template(createEvent)
+
 
 @app.route('/todos/<int:todo_id>', methods=['GET', 'POST'])
 @login_required
 def show_or_update(todo_id):
     return render_template('home.html')
 
+
 @app.route("/logout")
-#@login_required
+# @login_required
 def logout():
     logout_user()
     return redirect(url_for('index'))
 
+
 @app.before_request
 def before_request():
     g.user = current_user
+
 
 @app.route('/secret')
 @login_required
